@@ -248,14 +248,16 @@ class ACFCommand extends WP_CLI_Command {
         $field_group_name = $args[0];  // set new var with a decent name that makes sense farther down the line (let's keep our sanity intact)
 
         if( $field_group_name == 'all' ){
-          $path_pattern =  get_theme_root(). '/' . get_template()  . '/field_groups/*/data.xml';
+          $path_pattern =  get_theme_root(). '/' . get_template()  . '/field_groups/*/data.php';
         } else {
-          $path_pattern =  get_theme_root(). '/' . get_template()  . '/field_groups/' . $field_group_name . '/data.xml';
+          $path_pattern =  get_theme_root(). '/' . get_template()  . '/field_groups/' . $field_group_name . '/data.php';
         }
 
-        foreach (glob($path_pattern) as $file) :
-          $importer = new WP_Import();
-          $importer->import($file);
+        foreach ( glob( $path_pattern ) as $file ) :
+          $group = $this->get_group_data( $file );
+
+          $this->import_field_group( $group );
+
           WP_CLI::success( 'imported the data.xml for field_group ' . $field_group_name .'" into the dabatase!' );
         endforeach; 
 
@@ -327,4 +329,65 @@ Example: wp acf impport field-group-name' );
     }
   }
 
+  private function import_field_group( $group ) {
+    //var_dump($group['options']['position']);
+    //exit;
+
+    $my_post = array(
+      'post_title'      => $group['title'],
+      'comment_status'  => 'closed',
+      'ping_status'     => 'closed',
+      'post_status'     => 'publish',
+      'post_name'       => 'acf_' . sanitize_title( $group['title'] ),
+      // maybe add the guid here if needed
+      'post_type'       => 'acf',
+    );
+
+    $post_id = wp_insert_post( $my_post );
+    
+      // rules for where the fieldgroup is shown, aka location
+      foreach ( $group['fields'] as $field ) {
+        add_post_meta( $post_id, $field['key'], $field );
+      }    
+
+      // rules for where the fieldgroup is shown, aka location
+      foreach ( $group['location'] as $rule_group ) {
+        foreach ( $rule_group as $rule ) {
+          add_post_meta( $post_id, 'rule', $rule );
+        }
+      }
+
+      foreach ( $group['options'] as $meta_key => $meta_value) {
+        if( $meta_key == 'hide_on_screen' && empty($meta_value)) {
+          $meta_value = '';
+        }
+        update_post_meta( $post_id, $meta_key, $meta_value );
+      }
+      
+      // <wp:postmeta>
+      //   <wp:meta_key>position</wp:meta_key>
+      //   <wp:meta_value><![CDATA[normal]]></wp:meta_value>
+      // </wp:postmeta>
+    
+      // <wp:postmeta>
+      //   <wp:meta_key>rule</wp:meta_key>
+      //   <wp:meta_value><![CDATA[a:5:{s:5:"param";s:9:"post_type";s:8:"operator";s:2:"==";s:5:"value";s:4:"post";s:8:"order_no";i:0;s:8:"group_no";i:0;}]]></wp:meta_value>
+      // </wp:postmeta>
+    
+      // <wp:postmeta>
+      //   <wp:meta_key>_edit_last</wp:meta_key>
+      //   <wp:meta_value><![CDATA[1]]></wp:meta_value>
+      // </wp:postmeta>
+
+  }
+
+
+  private function get_group_data($f)
+    {
+      if (!is_readable($f) || !is_file($f))
+        return false;
+      
+      include $f;
+      return $group;
+    }
 }
