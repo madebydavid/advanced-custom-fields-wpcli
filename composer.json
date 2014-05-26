@@ -1,0 +1,8 @@
+{
+    "name":"madebydavid/advanced-custom-fields-wpcli",
+    "description":"Fork of https://github.com/hoppinger/advanced-custom-fields-wpcli for composer installer",
+    "type":"wordpress-plugin",
+    "require": {
+        "composer/installers": "~1.0"
+    }
+}
